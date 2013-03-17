@@ -42,8 +42,6 @@ class Game:
         blackColor = pygame.Color(0,0,0)
         greenColor = pygame.Color(0,240,0)
         placeForCard = (200,200)
-        backObj = pygame.image.load('data/img/b2.gif')
-        fontObj = pygame.font.Font('freesansbold.ttf',32)
 
         turnOfPlayer = 0
         while(True):
@@ -53,7 +51,7 @@ class Game:
             currAgentState = agentState(self.state, turnOfPlayer+1,turnOfPlayer+1)
             stateBeforeCardPlacement = newState.copy()
             card, declare = self.agents[turnOfPlayer].getActionCard(currAgentState)
-            self.showAgentDeck(agentState(newState, 1, turnOfPlayer+1), windowSurfaceObj)
+            self.showAgentDeck(agentState(newState, 2, 2), windowSurfaceObj)
             #   updating the game state after the play
             newState.isLie = self.isLie(card, declare)
             newState.cards[turnOfPlayer+1].remove(card)
@@ -67,10 +65,8 @@ class Game:
                 msg = 'Lie!'
             else:
                 msg = "Truth..."
-            msgSurfaceObj = fontObj.render(msg,False, blackColor)
-            windowSurfaceObj.blit(cardObj, placeForCard)
-            windowSurfaceObj.blit(declareObj, (150,50))
-            windowSurfaceObj.blit(msgSurfaceObj, (50,200))
+            self.printBackCards(newState, windowSurfaceObj)
+            self.printStats(newState, windowSurfaceObj)
 
             #   Checking each player if he calls for bluff
             call = False
@@ -85,7 +81,7 @@ class Game:
                 if call == True:
                     print("called a liar!")
                     break
-                #self.agents[suspectingPlayer].inform(agentState(stateBeforeCallPlacement, suspectingPlayer), call, agentState(newState.copy(), suspectingPlayer))
+                self.agents[suspectingPlayer].informCall(agentState(stateBeforeCallPlacement, suspectingPlayer+1, turnOfPlayer+1), call, agentState(newState.copy(), suspectingPlayer+1, turnOfPlayer+1))
 
             #   deciding repercussions for the call
             if call == True:
@@ -96,15 +92,17 @@ class Game:
                     newState.turnsSinceLastLie = 0
                     print("A liar was caught! ")
                 else:
-                    newState.cards[suspectingPlayer] = newState.cards[suspectingPlayer] + newState.cards[0]
+                    newState.cards[suspectingPlayer+1] = newState.cards[suspectingPlayer+1] + newState.cards[0]
                     newState.cards[0] = []
                     print("A dirty name-caller was shamed! ")
-                #self.agents[suspectingPlayer].inform(agentState(stateBeforeCallPlacement,suspectingPlayer), call, agentState(newState.copy(),suspectingPlayer))
-            self.agents[turnOfPlayer].inform(agentState(stateBeforeCardPlacement,turnOfPlayer+1, turnOfPlayer+1), (card, declare), agentState(newState.copy(), turnOfPlayer+1, turnOfPlayer+1))
+                self.agents[suspectingPlayer].informCall(agentState(stateBeforeCallPlacement, suspectingPlayer+1, turnOfPlayer+1), call, agentState(newState.copy(), suspectingPlayer+1, turnOfPlayer+1))
+            self.agents[turnOfPlayer].informCard(agentState(stateBeforeCardPlacement,turnOfPlayer+1, turnOfPlayer+1), (card, declare), agentState(newState.copy(), turnOfPlayer+1, turnOfPlayer+1))
 
             #   if someone wins, the game ends
             if len(newState.cards[turnOfPlayer+1]) == 0:
                 print("the winner is player ", turnOfPlayer+1)
+                print(self.agents[1].cardsWeights)
+                print(self.agents[1].callWeights)
                 break
 
             #   updating the state
@@ -115,7 +113,7 @@ class Game:
             turnOfPlayer = (turnOfPlayer+1) % self.numOfPlayers
             pygame.display.update()
             fpsClock.tick(30)
-            pygame.time.wait(300)
+            #pygame.time.wait(300)
 
 #   This method checks if the declaration was a lie
     def isLie(self, card, declare):
@@ -145,6 +143,22 @@ class Game:
                             deck[j] = deck[j+1]
                             deck[j+1] = tmp
         return deck
+
+    def printBackCards(self, state, windowSurfaceObj):
+        backObj = pygame.image.load('data/img/b2.gif')
+        place = [200, 200]
+        for i in xrange(len(state.cards[0])):
+            windowSurfaceObj.blit(backObj, tuple(place))
+            place[0]=place[0]+1
+            place[1]=place[1]-1
+
+    def printStats(self, state, windowSurfaceObj):
+        fontObj = pygame.font.Font('freesansbold.ttf',14)
+        msg = 'The deck has ' + str(len(state.cards[0])) + ' cards'
+        windowSurfaceObj.blit(fontObj.render(msg,False, (0,0,0)), (300, 10))
+        for i in xrange(state.numOfPlayers):
+            msg = 'player ' + str(i+1)+ ' has ' + str(len(state.cards[i+1])) + ' cards'
+            windowSurfaceObj.blit(fontObj.render(msg,False, (0,0,0)), (300, 10 + (i+1)*20))
 
 """
 This is the state of the agent, whose values are harvested from the state of the game
@@ -224,11 +238,20 @@ class Agent:
     def update(self, agentState):
         pass
 
+    def informCard(self, oldState, newState, action):
+        pass
+
+    def informCall(self, oldState, newState, action):
+        pass
+
     def getActionCard(self, agentState):
         raise NotImplementedError("Implemented in the inheriting classes")
 
     def getActionCall(self, agentState):
         raise NotImplementedError("Implemented in the inheriting classes")
+
+    def checkIfIHaveThisCard(self,state):
+        return False
 
 #   This method returns the legal values of cards that the player can return
     def legalValues(self, agentState):
